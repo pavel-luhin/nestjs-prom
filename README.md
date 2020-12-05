@@ -39,14 +39,38 @@ export class ApplicationModule {}
 
 Here the options available for PromModule.forRoot:
 
-|key|type|default|details|
+|Option|Type|Default|Description|
 |---|---|---|---|
-|defaultLabels|object|`{}`|The defaults labels to apply on every counter|
-|useHttpCounterMiddleware|boolean|`true`|Create automatically http_requests_total counter|
-|withDefaultController|boolean|`true`|Enable default controller to handle `/metrics` endpoint|
-|withDefaultsMetrics|boolean|`true`|Enable defaults metrics for nodejs (call `collectDefaultMetrics()`)|
-|withGlobalInterceptor|boolean|`true`|Enable interceptor to catch uncatched exception thrown by your app on an endpoint|
+|defaultLabels|Object<string, string|number>|`{}`|The defaults labels to set|
+|metricPath|string|`/metrics`|Path to use to service metrics|
+|withDefaultsMetrics|boolean|`true`|enable defaultMetrics provided by prom-client|
+|withDefaultController|boolean|`true`|add internal controller to expose /metrics endpoints|
+|withHttpMiddleware|object|`{}`|Tttp middleware options for http requests metrics|
+|withHttpMiddleware.enable|boolean|`false`|Enable the middleware for http requests|
+|withHttpMiddleware.timeBuckets|number[]|`[0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 10]`|The time buckets wanted|
+|withHttpMiddleware.pathNormalizationExtraMasks|RegEx[]| `[]` |The regexp mask for normalization|
 
+### Http requests
+
+To track the http requests metrics, simply set  `withHttpMiddleware.enable = true`
+
+By default, this feature is disabled.
+
+```typescript
+import { Module } from '@nestjs/common';
+import { PromModule } from '@digikare/nestjs-prom';
+
+@Module({
+  imports: [
+    PromModule.forRoot({
+      withHttpMiddleware: {
+        enable: true,
+      }
+    }),
+  ]
+})
+export class ApplicationModule {}
+```
 
 ### Setup metric
 
@@ -116,6 +140,25 @@ export class AppController {
 }
 ```
 
+```typescript
+import { GaugeMetric, PromGauge } from '@digikare/nest-prom';
+
+@Controller()
+export class AppController {
+
+  @Get('/home')
+  home(
+    @PromGauge('app_gauge_1') gauge1: GaugeMetric,
+  ) {
+    gauge1.inc(); // 1
+    gauge1.inc(5); // 6
+    gauge1.dec(); // 5
+    gauge1.dec(2); // 3
+    gauge1.set(10); // 10
+  }
+}
+```
+
 ### Metric class instances
 
 If you want to counthow many instance of a specific class has been created:
@@ -166,7 +209,7 @@ export class AppController {
 
 ### Metric endpoint
 
-The default metrics endpoint is `/metrics` this can be changed with the customUrl option
+The default metrics endpoint is `/metrics` this can be changed with the metricPath option
 
 ```ts
 @Module({
@@ -175,7 +218,7 @@ The default metrics endpoint is `/metrics` this can be changed with the customUr
       defaultLabels: {
         app: 'my_app',
       },
-      customUrl: 'custom/uri',
+      metricPath: 'custom/uri',
     }),
   ],
 })
@@ -191,9 +234,16 @@ the moment.
 
 ### PromModule.forRoot() options
 
-- `withDefaultsMetrics: boolean (default true)` enable defaultMetrics provided by prom-client
-- `withDefaultController: boolean (default true)` add internal controller to expose /metrics endpoints
-- `useHttpCounterMiddleware: boolean (default false)` register http_requests_total counter
+|Option|Type|Default|Description|
+|---|---|---|---|
+|defaultLabels|Object<string, string|number>|`{}`|The defaults labels to set|
+|metricPath|string|`/metrics`|Path to use to service metrics|
+|withDefaultsMetrics|boolean|`true`|enable defaultMetrics provided by prom-client|
+|withDefaultController|boolean|`true`|add internal controller to expose /metrics endpoints|
+|withHttpMiddleware|object|`{}`|To enable the http middleware for http metrics|
+|withHttpMiddleware.enable|boolean|`false`|Enable http middleware|
+|withHttpMiddleware.timeBuckets|number[]|`[0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 10]`|The time buckets wanted|
+|withHttpMiddleware.pathNormalizationExtraMasks|RegEx[]| `[]` |The regexp mask for normalization|
 
 ### Decorators
 
@@ -209,17 +259,6 @@ the moment.
 I do not provide any auth/security for `/metrics` endpoints.
 This is not the aim of this module, but depending of the auth strategy, you can
 apply a middleware on `/metrics` to secure it.
-
-## TODO
-
-- Update readme
-  - Gauge
-  - Histogram
-  - Summary
-- Manage registries
-- Adding example on how to secure `/metrics` endpoint
-  - secret
-  - jwt
 
 ## License
 
